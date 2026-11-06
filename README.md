@@ -79,6 +79,23 @@ explorer -> builder role -> reviewer -> privacy-guard -> scribe -> design-librar
 
 A failed review goes back to the builder, not to me. Anything others will see goes through privacy-guard. I am the only one who can set a task to `done`. Agents never publish, push, commit, send, delete, spend, or submit forms. They also have to cite files for facts and are told never to invent numbers, clients or dates. The full rules are in [AGENT_OPERATING_RULES.md](AGENT_OPERATING_RULES.md).
 
+## Offline chat (local model, streaming, Stop)
+
+The Offline Chat page of the desktop app talks to a local OpenAI-compatible server (LM Studio, or `llama-server` from llama.cpp) at `http://127.0.0.1:1234` by default. The address can be changed, but only local addresses are accepted.
+
+- **Streaming with Stop.** Replies stream token by token, with a Stop button that aborts the request. All networking runs in the Electron main process; the page only receives chunks over IPC.
+- **Remembered model.** The chosen model is saved in the app's user-data folder and survives a restart.
+- **Start button.** If no local model is running, a panel offers "Start llama-server" and "Retry connection". Start only runs a file named `llama-server` or `llama-server.exe` with a `.gguf` model, uses fixed arguments (`-m <model> --host 127.0.0.1 --port <port>`) with `shell: false`, and refuses a port that is already in use.
+- **Safe rendering.** Model text is written with `textContent`, never `innerHTML`, so markup in a reply is shown literally.
+- **Narrow windows.** At 600px wide or less the sidebar collapses on its own.
+- **Tests.** The pure logic is in `app/offline-lib.js` and tested with `cd app && node --test test/offline-lib.test.js` (13 tests). A real-Electron end-to-end script (`app/test/e2e/run-e2e.js`, with a mock streaming server and a stand-in `llama-server`) passed 33 checks with 0 console errors when it was built.
+- **Not verified:** I have not yet tried Start with a real `llama-server` build; it was tested against a stand-in executable.
+- **Test switches:** `MIKAOS_NO_AGENTS=1` skips the PM2 fleet and `MIKAOS_VAULT` overrides the vault path; both exist for the test runs.
+
+## Read-only security-review roles
+
+Five more role sub-agents review security and never change anything: `sql-security`, `ai-agent-security`, `electron-security`, `dependency-auditor` and `web-security`. Each one is listed in `agents/shared/subagent-roles.json` with a written test and extra limits, and has an agent file in `.claude/agents/`. They report findings with a severity and a fix; they do not edit files, touch live systems or run queries on real data.
+
 ## How I test (and why it matters)
 
 I do not take "it works" on trust, from a model or from me.

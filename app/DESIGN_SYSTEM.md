@@ -169,6 +169,7 @@ Built to `KNOWLEDGE_BASE_3D_NETWORK_CONCEPT.md`.
 
 | Date | Change |
 |---|---|
+| 2026-10-31 | Offline_Chat: remembered model (userData/offline-settings.json), token-streaming replies via main-process IPC with a Stop button, Local model not running panel (amber border, Start llama-server + Retry) and a Local server settings block; sidebar auto-collapses and chrome tightens at <=600px. Model text is only written with textContent. |
 | 2026-10-13 | AI Core refined against the reference: V-chest/waist proportions, hex abs, chunkier armour, bigger head + hands, brightness hierarchy, breathing + scan-line idle, roomier framing. |
 | 2026-10-13 | Document created from current code: tokens, folder palette, components, AI Core + 3D Knowledge Graph techniques, tools, pitfalls. |
 | 2026-10-13 | 2D canvas Neural Graph replaced by the 3D Knowledge Graph; Knowledge Base page rebuilt (all notes, folders, search, wikilinks). |

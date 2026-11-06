@@ -6,7 +6,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build": "electron-builder"
+    "build": "electron-builder",
+    "test": "node --test test/offline-lib.test.js"
   },
   "dependencies": {
     "electron-store": "^8.2.0",

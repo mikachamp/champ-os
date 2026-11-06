@@ -1064,6 +1064,31 @@ html, body {
 .mini-btn { font-size: 10.5px; padding: 7px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; font-family: 'Montserrat', sans-serif; white-space: nowrap; }
 .mini-btn:hover { color: var(--text-primary); border-color: var(--jarvis-cyan); }
 
+/* Offline_Chat v2: not-running state, settings fields, streaming bubble */
+#page-offline-chat [hidden] { display: none !important; }
+#page-offline-chat .chat-container { min-height: 260px; }
+.offline-model-select { min-width: 0; }
+.offline-model-select:focus, .offline-path-input:focus { border-color: var(--jarvis-cyan); }
+.offline-down { margin-bottom: 14px; padding: 16px 18px; background: var(--bg-card); border: 1px solid rgba(255,170,0,0.4); border-radius: var(--radius-lg); backdrop-filter: blur(10px); }
+.offline-down-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--warning); }
+.offline-down-title .material-symbols-outlined { font-size: 20px; }
+.offline-down-text { margin: 8px 0 12px 0; font-size: 12px; line-height: 1.55; color: var(--text-secondary); }
+.offline-down-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.offline-down-actions .kb-btn:disabled { opacity: 0.5; cursor: progress; }
+.offline-down-progress { margin-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--jarvis-cyan); min-height: 14px; overflow-wrap: anywhere; }
+.offline-down-setup { margin: 8px 0 0 0; font-size: 11.5px; line-height: 1.5; color: var(--warning); overflow-wrap: anywhere; }
+.offline-field-label { display: block; margin: 10px 0 4px 0; font-size: 10.5px; color: var(--text-muted); }
+.offline-advanced-body .offline-path-input { width: 100%; box-sizing: border-box; }
+.offline-save-note { font-size: 10.5px; color: var(--success); align-self: center; }
+.offline-stop { border-color: var(--danger); color: var(--danger); }
+.offline-stop:hover { background: rgba(255,0,51,0.1); color: var(--text-primary); border-color: var(--danger); }
+#page-offline-chat .message-bubble { white-space: pre-wrap; overflow-wrap: anywhere; }
+#page-offline-chat .message-bubble.streaming:empty::after, #page-offline-chat .message-bubble.streaming::after { content: '▍'; color: var(--jarvis-cyan); animation: offlineCaret 1s steps(1) infinite; }
+#page-offline-chat .message-bubble.offline-note { color: var(--text-muted); font-size: 11.5px; }
+@keyframes offlineCaret { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { #page-offline-chat .message-bubble.streaming::after { animation: none; } }
+@media (max-width: 600px) { .offline-toolbar { flex-wrap: wrap; } .offline-model-select { flex: 1 1 100%; order: 3; } }
+
 .chat-container::before {
   content: '';
   position: absolute;
@@ -1734,3 +1759,9 @@ html, body {
 .toast { padding: 10px 16px; border-radius: 10px; font: 600 12px 'Montserrat', sans-serif; color: #fff; background: rgba(16, 185, 129, .92); box-shadow: 0 10px 30px rgba(0,0,0,.4); transition: opacity .3s, transform .3s; }
 .toast.err { background: rgba(220, 38, 38, .92); }
 .toast.out { opacity: 0; transform: translateY(8px); }
+
+/* Phone width: the sidebar auto-collapses (hamburger reopens it) and chrome tightens up. */
+@media (max-width: 600px) {
+  .page { padding: 16px 14px; }
+  .titlebar .search-bar, .titlebar .operator-profile, .titlebar-center, .app-name { display: none; }
+}

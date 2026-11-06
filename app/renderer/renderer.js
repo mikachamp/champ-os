@@ -149,6 +149,11 @@ if (sidebarToggle && sidebar) {
   sidebarToggle.addEventListener('click', () => {
     sidebar.classList.toggle('collapsed');
   });
+  // Phone width: start collapsed so pages get the full width.
+  const narrowMq = window.matchMedia('(max-width: 600px)');
+  const applyNarrow = () => sidebar.classList.toggle('collapsed', narrowMq.matches);
+  applyNarrow();
+  narrowMq.addEventListener('change', applyNarrow);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -641,68 +646,170 @@ pollDirector()
 // entirely separate from the cloud agent fleet — nothing here leaves the machine.
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// Offline chat v2: networking is in the main process (streamed over IPC). Everything the
+// model says is written with textContent, never innerHTML, so model text can't inject markup.
+const offlineState = { up: false, settings: null, history: [], streamId: null, bubble: null, text: '', busy: false }
+const $o = id => document.getElementById(id)
+
+function offlineAddBubble(role, text, extraClass) {
+  const messages = $o('offlineChatMessages')
+  const wrap = document.createElement('div')
+  wrap.className = `chat-message ${role}`
+  const bubble = document.createElement('div')
+  bubble.className = 'message-bubble' + (extraClass ? ` ${extraClass}` : '')
+  bubble.textContent = text
+  wrap.appendChild(bubble)
+  messages.appendChild(wrap)
+  messages.scrollTop = messages.scrollHeight
+  return bubble
+}
+
+function offlineSetStreaming(on) {
+  offlineState.busy = on
+  $o('offlineStopBtn').hidden = !on
+  $o('offlineChatSend').disabled = on
+  $o('offlineChatInput').disabled = on
+  if (!on) $o('offlineChatInput').focus()
+}
+
+function offlineFillSettings(s) {
+  $o('offlineUrlInput').value = s.serverUrl
+  $o('offlineExeInput').value = s.llamaServerPath
+  $o('offlineGgufInput').value = s.llamaModelPath
+}
+
+const OFFLINE_REASONS = {
+  'no-server-path': 'The llama-server path is not set. Open "Local server settings" below and enter the full path to llama-server.exe.',
+  'server-not-found': 'No file exists at the llama-server path you saved. Check it under "Local server settings" below.',
+  'server-not-llama': 'The llama-server path must point to a file named llama-server.exe. For safety, Start runs nothing else.',
+  'model-not-gguf': 'The model file must be a .gguf file.',
+  'port-in-use': 'Another server (probably LM Studio) is already using this port. Close it, or set a different port such as 8080 in "Local server settings".',
+  'no-model-path': 'The model file (.gguf) is not set. Open "Local server settings" below and enter its full path.',
+  'model-not-found': 'No file exists at the model path you saved. Check it under "Local server settings" below.',
+  'already-starting': 'llama-server is already starting. Waiting for it to answer.',
+  'spawn-failed': 'llama-server could not be launched.',
+  'exited': 'llama-server stopped right after starting. Check the model file and port.',
+  'timeout': 'llama-server was launched but never answered. It may still be loading. Press Retry connection in a moment.'
+}
+
+function offlineShowSetupHint(msg) {
+  const el = $o('offlineSetupHint')
+  el.textContent = msg || ''
+  el.hidden = !msg
+  if (msg) $o('offlineSettings').open = true
+}
+
 async function refreshOfflineStatus() {
-  const pill = document.getElementById('offlineStatusPill')
-  const select = document.getElementById('offlineModelSelect')
-  const standaloneList = document.getElementById('offlineStandaloneList')
-
-  const [status, modelsResult] = await Promise.all([api.offlineStatus(), api.offlineModels()])
-
-  const lmUp = status?.lmStudio?.reachable
-  pill.textContent = lmUp ? 'LM STUDIO: CONNECTED' : 'LM STUDIO: NOT RUNNING'
-  pill.className = `offline-status-pill ${lmUp ? 'online' : 'offline'}`
-
-  const models = modelsResult?.models || []
-  select.innerHTML = models.length
-    ? models.map(m => `<option value="${m.id}">${m.name}</option>`).join('')
-    : '<option value="">No models found — open LM Studio or download one</option>'
-
-  const standalone = status?.standaloneServers || []
-  standaloneList.innerHTML = standalone.length
-    ? standalone.map(s => `<div class="offline-standalone-item"><span>port ${s.port} — ${s.modelPath.split(/[\\/]/).pop()}</span><button class="mini-btn" onclick="stopStandalone(${s.port})">Stop</button></div>`).join('')
-    : ''
+  const pill = $o('offlineStatusPill')
+  const select = $o('offlineModelSelect')
+  if (!offlineState.settings) { offlineState.settings = await api.offlineSettingsGet(); offlineFillSettings(offlineState.settings) }
+  const probe = await api.offlineProbe()
+  offlineState.up = !!probe.up
+  pill.textContent = probe.up ? 'LOCAL MODEL: CONNECTED' : 'LOCAL MODEL: NOT RUNNING'
+  pill.className = `offline-status-pill ${probe.up ? 'online' : 'offline'}`
+  $o('offlineDown').hidden = probe.up
+  select.disabled = !probe.up
+  select.replaceChildren()
+  if (!probe.up || !probe.models.length) {
+    const o = document.createElement('option')
+    o.value = ''
+    o.textContent = probe.up ? 'No models loaded in the server' : 'Local model not running'
+    select.appendChild(o)
+    return
+  }
+  for (const m of probe.models) {
+    const o = document.createElement('option')
+    o.value = m.id
+    o.textContent = m.name
+    select.appendChild(o)
+  }
+  const saved = offlineState.settings.lastModel
+  if (saved && probe.models.some(m => m.id === saved)) select.value = saved
 }
+window.refreshOfflineStatus = refreshOfflineStatus
 
-window.startStandalone = async function() {
-  const input = document.getElementById('offlinePathInput')
-  const modelPath = input.value.trim()
-  if (!modelPath) return
-  const result = await api.offlineStart(modelPath)
-  if (result?.success) { input.value = ''; await refreshOfflineStatus() }
-  else alert(result?.error || 'Could not start standalone server.')
-}
+$o('offlineModelSelect')?.addEventListener('change', async e => {
+  if (!e.target.value) return
+  offlineState.settings = await api.offlineSettingsSet({ lastModel: e.target.value })
+})
 
-window.stopStandalone = async function(port) {
-  await api.offlineStop(port)
-  await refreshOfflineStatus()
-}
+$o('offlineSaveSettings')?.addEventListener('click', async () => {
+  offlineState.settings = await api.offlineSettingsSet({
+    serverUrl: $o('offlineUrlInput').value, llamaServerPath: $o('offlineExeInput').value, llamaModelPath: $o('offlineGgufInput').value
+  })
+  offlineFillSettings(offlineState.settings)
+  $o('offlineSaveNote').textContent = 'Saved.'
+  setTimeout(() => { $o('offlineSaveNote').textContent = '' }, 2500)
+  offlineShowSetupHint('')
+  refreshOfflineStatus()
+})
+
+$o('offlineRetryBtn')?.addEventListener('click', () => { offlineShowSetupHint(''); refreshOfflineStatus() })
+
+$o('offlineStartBtn')?.addEventListener('click', async () => {
+  const btn = $o('offlineStartBtn')
+  offlineShowSetupHint('')
+  btn.disabled = true
+  const prog = $o('offlineProgress')
+  prog.textContent = 'Starting…'
+  const r = await api.offlineLlamaStart()
+  btn.disabled = false
+  prog.textContent = ''
+  if (r.ok) { await refreshOfflineStatus(); return }
+  offlineShowSetupHint((OFFLINE_REASONS[r.reason] || 'Could not start llama-server.') + (r.error ? ` (${r.error})` : ''))
+})
+
+api.onOfflineLlama(d => { $o('offlineProgress').textContent = d.message || '' })
+
+api.onOfflineChunk(d => {
+  if (d.id !== offlineState.streamId) return
+  offlineState.text += d.text
+  offlineState.bubble.textContent = offlineState.text
+  const m = $o('offlineChatMessages')
+  m.scrollTop = m.scrollHeight
+})
+
+api.onOfflineEnd(d => {
+  if (d.id !== offlineState.streamId) return
+  offlineState.bubble.classList.remove('streaming')
+  if (!offlineState.text) offlineState.bubble.textContent = d.reason === 'error' ? '' : '(no reply)'
+  if (offlineState.text) offlineState.history.push({ role: 'assistant', content: offlineState.text })
+  if (d.reason === 'stopped') offlineAddBubble('system', 'Stopped.', 'offline-note')
+  if (d.reason === 'error') {
+    offlineAddBubble('system', `The local model stopped answering: ${d.error || 'unknown error'}`, 'offline-note')
+    refreshOfflineStatus()
+  }
+  offlineState.streamId = null
+  offlineSetStreaming(false)
+})
 
 window.sendOfflineChat = async function() {
-  const input = document.getElementById('offlineChatInput')
-  const messages = document.getElementById('offlineChatMessages')
-  const select = document.getElementById('offlineModelSelect')
+  if (offlineState.busy) return
+  const input = $o('offlineChatInput')
   const text = input.value.trim()
   if (!text) return
-  const model = select.value
-
-  messages.innerHTML += `<div class="chat-message user"><div class="message-bubble">${escapeHtml(text)}</div></div>`
+  if (!offlineState.up) { await refreshOfflineStatus(); if (!offlineState.up) return }
   input.value = ''
-  messages.scrollTop = messages.scrollHeight
-
-  const thinkingId = `ot-${Date.now()}`
-  messages.innerHTML += `<div class="chat-message agent" id="${thinkingId}"><div class="message-bubble">Thinking… (local models can be slower than cloud)</div></div>`
-  messages.scrollTop = messages.scrollHeight
-
-  const result = await api.offlineChat(model, text)
-  document.getElementById(thinkingId)?.remove()
-
-  const reply = result?.result || result?.error || 'No response.'
-  messages.innerHTML += `<div class="chat-message agent"><div class="message-bubble markdown-body">${markdownToHtml(reply)}</div></div>`
-  messages.scrollTop = messages.scrollHeight
+  offlineAddBubble('user', text)
+  offlineState.history.push({ role: 'user', content: text })
+  offlineState.streamId = `s-${Date.now()}`
+  offlineState.text = ''
+  offlineState.bubble = offlineAddBubble('agent', '', 'streaming')
+  offlineSetStreaming(true)
+  const r = await api.offlineStreamStart(offlineState.streamId, $o('offlineModelSelect').value, offlineState.history)
+  if (!r.ok) {
+    offlineState.bubble.textContent = r.error || 'Could not send.'
+    offlineState.streamId = null
+    offlineSetStreaming(false)
+  }
 }
-document.getElementById('offlineChatInput')?.addEventListener('keydown', e => {
+
+$o('offlineStopBtn')?.addEventListener('click', () => { if (offlineState.streamId) api.offlineStreamStop(offlineState.streamId) })
+
+$o('offlineChatInput')?.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendOfflineChat() }
 })
+
 
 // Which model the agents are actually using, as reported by the orchestrator.
 function showLlm(llm) {

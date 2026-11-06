@@ -234,6 +234,86 @@
       "status": "active",
       "approved_on": "2026-10-27",
       "approved_by": "Mika ('create more agents you think are necessary and the rules for them')"
+    },
+    "sql-security": {
+      "does": "Read-only security review of anything that talks to a database: SQL injection (string-built queries, ORM raw calls), secrets and connection strings in code, database user permissions, row-level security, risky migrations, personal data in tables and logs. Produces a findings report with fixes; never runs queries against real data.",
+      "champ_os_owner": "it-security",
+      "model_hint": "claude",
+      "extra_reading": [
+        "the project's schema, migrations and database access code",
+        "obsidian/Projects/ (the project hub)"
+      ],
+      "test": "Every finding cites file and line with severity (high/medium/low), the attack in one line and a parameterised or least-privilege fix; every query-building call site was checked, not sampled; no queries run on real or production data (only a throwaway local copy with fictional rows, if at all); changed nothing.",
+      "limits_extra": "READ-ONLY. Never connect to a live, shared or production database, never run INSERT/UPDATE/DELETE/DROP/ALTER/GRANT on anything but a throwaway local copy it created with fictional data, never print connection strings, passwords or keys (mask them as ****). Proof-of-concept injections stay as written examples in the report, never fired at a real system.",
+      "parallel_ok": true,
+      "example_tasks": [],
+      "status": "active",
+      "approved_on": "2026-10-31",
+      "approved_by": "Mika ('create the sql security role')"
+    },
+    "ai-agent-security": {
+      "does": "Read-only security review of AI agent systems (Mika OS, Agent Chat, local models): prompt injection from web pages, files and chat lines, tool permissions per agent, approval-gate bypasses, data leaking into prompts or logs, and model output that can trigger actions.",
+      "champ_os_owner": "it-security",
+      "model_hint": "claude",
+      "extra_reading": [
+        "<workspace>/AGENT_OPERATING_RULES.md#10",
+        "agents/shared/subagent-roles.json",
+        "the agent's prompts, tool definitions and approval code"
+      ],
+      "test": "Every finding cites file and line with severity, the attack path in one line (input -> agent -> action) and a fix; every place untrusted text reaches a model and every tool an agent can call was listed; injection tests ran only against a sandboxed copy with fictional data and no real tools; changed nothing.",
+      "limits_extra": "READ-ONLY. Test injections only in a sandboxed copy with tools stubbed out; never against the live orchestrator, the real vault or the real Agent Chat log. Never post forged approvals into the real chat. Never print API keys or HMAC secrets.",
+      "parallel_ok": true,
+      "example_tasks": [],
+      "status": "active",
+      "approved_on": "2026-10-31",
+      "approved_by": "Mika ('set it up')"
+    },
+    "electron-security": {
+      "does": "Read-only security review of Electron apps (Agent Chat, Mika OS app): contextIsolation, nodeIntegration, sandbox, CSP, IPC input checks, preload exposure, shell.openExternal and navigation, file paths, auto-update and code signing.",
+      "champ_os_owner": "it-security",
+      "model_hint": "claude",
+      "extra_reading": [
+        "the app's main, preload and renderer code",
+        "electron security checklist (electronjs.org/docs/latest/tutorial/security)"
+      ],
+      "test": "Every item of the Electron security checklist marked pass/fail/n.a. with file and line; every IPC channel listed with its input checks; findings have severity and a fix; changed nothing.",
+      "limits_extra": "READ-ONLY. May build and run the app from a copy with a fictional vault to confirm a finding; never against Mika's real data.",
+      "parallel_ok": true,
+      "example_tasks": [],
+      "status": "active",
+      "approved_on": "2026-10-31",
+      "approved_by": "Mika ('set it up')"
+    },
+    "dependency-auditor": {
+      "does": "Read-only supply-chain check: npm audit / pip-audit, missing lockfiles, outdated or abandoned packages, typosquats, install scripts, and CDN scripts without pinned versions or SRI hashes.",
+      "champ_os_owner": "it-security",
+      "model_hint": "claude-haiku",
+      "extra_reading": [
+        "the project's package.json, lockfiles, requirements/pyproject and HTML script tags"
+      ],
+      "test": "Per project: audit command and its counts (critical/high/moderate/low), lockfile yes/no, CDN scripts with version and SRI status, and an upgrade list with the exact commands for Mika; no install, update or fix commands run; working tree unchanged.",
+      "limits_extra": "READ-ONLY. Never run npm install/update/audit fix, pip install or anything that changes node_modules, venvs or lockfiles. Skip node_modules of third-party downloads (e.g. AutoGPT) unless the task names them.",
+      "parallel_ok": true,
+      "example_tasks": [],
+      "status": "active",
+      "approved_on": "2026-10-31",
+      "approved_by": "Mika ('set it up')"
+    },
+    "web-security": {
+      "does": "Read-only security review of websites before launch: security headers and CSP, HTTPS and mixed content, forms (validation, spam protection, where submissions go), third-party scripts, cookies, and WordPress hardening (plugins, admin login, file editing, backups).",
+      "champ_os_owner": "it-security",
+      "model_hint": "claude",
+      "extra_reading": [
+        "the site's pages, forms and hosting/WordPress notes",
+        "obsidian/Projects/ (the project hub)"
+      ],
+      "test": "Every finding cites page and file/line or header with severity and a fix; every form listed with where it submits and its protection; header check results recorded; changed nothing.",
+      "limits_extra": "READ-ONLY. Passive checks only on live sites (fetch pages and headers); no scanning tools, login attempts, form submissions or load testing against any live site. Active tests only on a local copy.",
+      "parallel_ok": true,
+      "example_tasks": [],
+      "status": "active",
+      "approved_on": "2026-10-31",
+      "approved_by": "Mika ('set it up')"
     }
   },
   "not_for_subagents": {

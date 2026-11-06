@@ -18,6 +18,18 @@ contextBridge.exposeInMainWorld('agentOS', {
   offlineStart:  (modelPath, port)                 => ipcRenderer.invoke('offline:standaloneStart', { modelPath, port }),
   offlineStop:   (port)                            => ipcRenderer.invoke('offline:standaloneStop', { port }),
 
+  // Offline chat v2 (direct to local server; streaming over IPC)
+  offlineSettingsGet: ()           => ipcRenderer.invoke('offline:settingsGet'),
+  offlineSettingsSet: (patch)      => ipcRenderer.invoke('offline:settingsSet', patch),
+  offlineProbe:       ()           => ipcRenderer.invoke('offline:probe'),
+  offlineStreamStart: (id, model, messages) => ipcRenderer.invoke('offline:streamStart', { id, model, messages }),
+  offlineStreamStop:  (id)         => ipcRenderer.invoke('offline:streamStop', { id }),
+  offlineLlamaStart:  ()           => ipcRenderer.invoke('offline:llamaStart'),
+  offlineLlamaStop:   ()           => ipcRenderer.invoke('offline:llamaStop'),
+  onOfflineChunk:     (cb) => ipcRenderer.on('offline:streamChunk', (_e, d) => cb(d)),
+  onOfflineEnd:       (cb) => ipcRenderer.on('offline:streamEnd', (_e, d) => cb(d)),
+  onOfflineLlama:     (cb) => ipcRenderer.on('offline:llamaProgress', (_e, d) => cb(d)),
+
   // Vault
   readNote:      (path)          => ipcRenderer.invoke('vault:read', path),
   listNotes:     (folder)        => ipcRenderer.invoke('vault:list', folder),

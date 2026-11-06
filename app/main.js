@@ -3,7 +3,8 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, shell } = require(
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
-const { exec } = require('child_process')
+const { exec, spawn } = require('child_process')
+const offlineLib = require('./offline-lib')
 const { buildVaultGraph } = require('./vault-graph')
 
 let mainWindow
@@ -12,7 +13,7 @@ let tray
 // Resolved relative to this file (app/ sits next to obsidian/ and agents/
 // under the project root) instead of a hardcoded personal path, so this keeps
 // working if the project folder ever moves.
-const VAULT_PATH = path.join(__dirname, '..', 'obsidian')
+const VAULT_PATH = process.env.MIKAOS_VAULT || path.join(__dirname, '..', 'obsidian')
 const AGENTS_PATH = path.join(__dirname, '..', 'agents')
 
 const AGENTS = {
@@ -36,6 +37,7 @@ const AGENTS = {
 let agentsDeployed = false
 
 function deployAgents() {
+  if (process.env.MIKAOS_NO_AGENTS) return // test runs: never start the PM2 fleet
   console.log('Deploying background agents via PM2...')
   exec('npx pm2 start ecosystem.config.cjs', { cwd: AGENTS_PATH }, (error, stdout, stderr) => {
     if (error) {
@@ -63,6 +65,7 @@ async function announceSession(attempt = 0) {
 }
 
 function stopAgents() {
+  if (process.env.MIKAOS_NO_AGENTS) return
   if (!agentsDeployed) return
   console.log('Stopping background agents...')
   exec('npx pm2 stop all', { cwd: AGENTS_PATH }, () => {
@@ -298,6 +301,125 @@ ipcMain.handle('offline:standaloneStop', async (event, { port }) => {
   }
 })
 
+// ── Offline chat v2: direct to the local OpenAI-compatible server ────────────
+// Networking lives here (main process); the renderer only gets text chunks over IPC.
+const settingsFile = () => path.join(app.getPath('userData'), 'offline-settings.json')
+const getOfflineSettings = () => offlineLib.loadSettings(settingsFile())
+const sendToRenderer = (channel, payload) => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload)
+}
+
+ipcMain.handle('offline:settingsGet', () => getOfflineSettings())
+ipcMain.handle('offline:settingsSet', (event, patch) => offlineLib.saveSettings(settingsFile(), patch))
+
+// Is a local model server answering? Returns its model list when it is.
+async function probeLocalServer(timeoutMs = 2500) {
+  const { serverUrl } = getOfflineSettings()
+  try {
+    const res = await fetch(`${serverUrl}/v1/models`, { signal: AbortSignal.timeout(timeoutMs) })
+    if (!res.ok) return { up: false, serverUrl, models: [], error: `HTTP ${res.status}` }
+    const json = await res.json()
+    const models = (json.data || []).filter(m => m && typeof m.id === 'string').map(m => ({ id: m.id, name: m.id }))
+    return { up: true, serverUrl, models }
+  } catch (e) {
+    return { up: false, serverUrl, models: [], error: 'No answer' }
+  }
+}
+ipcMain.handle('offline:probe', () => probeLocalServer())
+
+const activeStreams = new Map() // id -> AbortController
+ipcMain.handle('offline:streamStart', async (event, { id, model, messages }) => {
+  if (typeof id !== 'string' || activeStreams.has(id)) return { ok: false, error: 'bad id' }
+  const msgs = offlineLib.sanitizeMessages(messages)
+  if (!msgs.length) return { ok: false, error: 'No message' }
+  const { serverUrl } = getOfflineSettings()
+  const ctrl = new AbortController()
+  activeStreams.set(id, ctrl)
+  ;(async () => {
+    let finished = false
+    const finish = (reason, error) => {
+      if (finished) return
+      finished = true
+      activeStreams.delete(id)
+      sendToRenderer('offline:streamEnd', { id, reason, error })
+    }
+    try {
+      const body = { messages: msgs, stream: true }
+      if (typeof model === 'string' && model) body.model = model
+      const res = await fetch(`${serverUrl}/v1/chat/completions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body), signal: ctrl.signal
+      })
+      if (!res.ok) return finish('error', `Server answered HTTP ${res.status}`)
+      const parser = offlineLib.createSSEParser({
+        onDelta: text => sendToRenderer('offline:streamChunk', { id, text }),
+        onDone: () => finish('done'),
+        onError: msg => finish('error', msg)
+      })
+      const dec = new TextDecoder()
+      const reader = res.body.getReader()
+      while (!parser.done && !finished) {
+        const { done, value } = await reader.read()
+        if (done) break
+        parser.feed(dec.decode(value, { stream: true }))
+      }
+      parser.flush()
+      try { reader.cancel() } catch {}
+      finish('done')
+    } catch (e) {
+      if (ctrl.signal.aborted) finish('stopped')
+      else finish('error', e.message || 'Stream failed')
+    }
+  })()
+  return { ok: true }
+})
+
+ipcMain.handle('offline:streamStop', (event, { id }) => {
+  const c = activeStreams.get(id)
+  if (c) c.abort()
+  return { ok: !!c }
+})
+
+// Start llama-server from the configured path. Fixed args, no shell, never a guessed path.
+let llamaChild = null
+ipcMain.handle('offline:llamaStart', async () => {
+  const progress = (stage, message) => sendToRenderer('offline:llamaProgress', { stage, message })
+  const s = getOfflineSettings()
+  const cfg = offlineLib.checkLlamaConfig(s)
+  if (!cfg.ok) return { ok: false, reason: cfg.reason }
+  if (llamaChild) return { ok: false, reason: 'already-starting' }
+  if (await offlineLib.portInUse(offlineLib.portOf(s.serverUrl))) return { ok: false, reason: 'port-in-use', error: 'port ' + offlineLib.portOf(s.serverUrl) }
+  let exited = null
+  progress('launching', 'Launching llama-server…')
+  try {
+    llamaChild = spawn(s.llamaServerPath, offlineLib.buildLlamaArgs(s.llamaModelPath, s.serverUrl), {
+      shell: false, windowsHide: true, stdio: 'ignore'
+    })
+  } catch (e) {
+    llamaChild = null
+    return { ok: false, reason: 'spawn-failed', error: e.message }
+  }
+  const child = llamaChild
+  child.on('error', e => { exited = `Could not start: ${e.message}` })
+  child.on('exit', code => { exited = exited || `llama-server exited (code ${code})`; if (llamaChild === child) llamaChild = null })
+
+  const attempts = 60
+  for (let i = 1; i <= attempts; i++) {
+    if (exited) { llamaChild = null; progress('failed', exited); return { ok: false, reason: 'exited', error: exited } }
+    progress('waiting', `Loading the model… checking connection (${i}/${attempts})`)
+    const p = await probeLocalServer(1500)
+    if (p.up) { progress('ready', 'Local model server is ready.'); return { ok: true } }
+    await new Promise(r => setTimeout(r, 1000))
+  }
+  progress('failed', 'Timed out waiting for the server to answer.')
+  return { ok: false, reason: 'timeout' }
+})
+
+ipcMain.handle('offline:llamaStop', () => {
+  if (llamaChild) { try { llamaChild.kill() } catch {} llamaChild = null }
+  return { ok: true }
+})
+
 // Read a file from Obsidian vault
 ipcMain.handle('vault:read', async (event, relativePath) => {
   try {
@@ -479,5 +601,6 @@ app.whenReady().then(() => {
 app.on('window-all-closed', (e) => e.preventDefault()) // keep running in tray
 
 app.on('before-quit', () => {
+  if (llamaChild) { try { llamaChild.kill() } catch {} }
   stopAgents() // Clean up PM2 agents when Mika OS actually quits
 })

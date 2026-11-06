@@ -274,18 +274,33 @@
         </div>
         <div class="offline-toolbar">
           <span class="offline-status-pill" id="offlineStatusPill">Checking…</span>
-          <select class="offline-model-select" id="offlineModelSelect"><option>Loading models…</option></select>
-          <button class="mini-btn" onclick="refreshOfflineStatus()">Refresh</button>
+          <select class="offline-model-select" id="offlineModelSelect" aria-label="Local model"><option value="">Loading models…</option></select>
+          <button class="mini-btn" id="offlineRefreshBtn" onclick="refreshOfflineStatus()">Refresh</button>
         </div>
-        <details class="offline-advanced">
-          <summary>Advanced: run without LM Studio</summary>
+        <div class="offline-down" id="offlineDown" hidden role="status">
+          <div class="offline-down-title"><span class="material-symbols-outlined">cloud_off</span> Local model not running</div>
+          <p class="offline-down-text" id="offlineDownText">No local model server is answering. Start llama-server, or open LM Studio and start its server.</p>
+          <div class="offline-down-actions">
+            <button class="kb-btn kb-btn-primary" id="offlineStartBtn">Start llama-server</button>
+            <button class="mini-btn" id="offlineRetryBtn">Retry connection</button>
+          </div>
+          <div class="offline-down-progress" id="offlineProgress" aria-live="polite"></div>
+          <p class="offline-down-setup" id="offlineSetupHint" hidden></p>
+        </div>
+        <details class="offline-advanced" id="offlineSettings">
+          <summary>Local server settings</summary>
           <div class="offline-advanced-body">
-            <p class="offline-advanced-hint">Launches the llama.cpp server LM Studio itself bundles, pointed straight at a .gguf file — runs standalone, LM Studio's app doesn't need to be open.</p>
-            <div class="offline-advanced-row">
-              <input type="text" class="offline-path-input" id="offlinePathInput" placeholder="Full path to a .gguf file..." />
-              <button class="mini-btn" onclick="startStandalone()">Start</button>
+            <p class="offline-advanced-hint">Where the app looks for a local model server, and how Start launches llama-server. Paths are used exactly as typed — nothing is guessed.</p>
+            <label class="offline-field-label" for="offlineUrlInput">Server address (local only)</label>
+            <input type="text" class="offline-path-input" id="offlineUrlInput" placeholder="http://127.0.0.1:1234" />
+            <label class="offline-field-label" for="offlineExeInput">llama-server path</label>
+            <input type="text" class="offline-path-input" id="offlineExeInput" placeholder="Full path to llama-server.exe" />
+            <label class="offline-field-label" for="offlineGgufInput">Model file (.gguf)</label>
+            <input type="text" class="offline-path-input" id="offlineGgufInput" placeholder="Full path to a .gguf file" />
+            <div class="offline-advanced-row" style="margin-top:10px">
+              <button class="mini-btn" id="offlineSaveSettings">Save settings</button>
+              <span class="offline-save-note" id="offlineSaveNote" aria-live="polite"></span>
             </div>
-            <div class="offline-standalone-list" id="offlineStandaloneList"></div>
           </div>
         </details>
         <div class="chat-container">
@@ -294,6 +309,7 @@
           </div>
           <div class="chat-input-area">
             <input type="text" class="chat-input" id="offlineChatInput" placeholder="Ask your local model..." />
+            <button class="mini-btn offline-stop" id="offlineStopBtn" hidden title="Stop the reply">Stop</button>
             <button class="chat-send" id="offlineChatSend" onclick="sendOfflineChat()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             </button>
