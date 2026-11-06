@@ -81,7 +81,7 @@ A failed review goes back to the builder, not to me. Anything others will see go
 
 ## Offline chat (local model, streaming, Stop)
 
-The Offline Chat page of the desktop app talks to a local OpenAI-compatible server (LM Studio, or `llama-server` from llama.cpp) at `http://127.0.0.1:1234` by default. The address can be changed, but only local addresses are accepted.
+The Offline Chat page of the desktop app talks to a local OpenAI-compatible server (LM Studio, or `llama-server`) at `http://127.0.0.1:1234` by default. The address can be changed, but only local addresses are accepted.
 
 - **Streaming with Stop.** Replies stream token by token, with a Stop button that aborts the request. All networking runs in the Electron main process; the page only receives chunks over IPC.
 - **Remembered model.** The chosen model is saved in the app's user-data folder and survives a restart.
@@ -94,7 +94,7 @@ The Offline Chat page of the desktop app talks to a local OpenAI-compatible serv
 
 ## Read-only security-review roles
 
-Five more role sub-agents review security and never change anything: `sql-security`, `ai-agent-security`, `electron-security`, `dependency-auditor` and `web-security`. Each one is listed in `agents/shared/subagent-roles.json` with a written test and extra limits, and has an agent file in `.claude/agents/`. They report findings with a severity and a fix; they do not edit files, touch live systems or run queries on real data.
+Five more role sub-agents review security and never change anything: `sql-security`, `ai-agent-security`, `electron-security`, `dependency-auditor` and `web-security`. Each one is listed in `agents/shared/subagent-roles.json` with a written test and extra limits, and has an agent file in `.claude/agents/`. They do not edit files or run queries on real data. web-security makes passive fetches of live sites only, and dependency-auditor reports audit counts and the upgrade commands to run.
 
 ## How I test (and why it matters)
 
