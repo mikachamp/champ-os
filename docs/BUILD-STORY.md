@@ -1,10 +1,10 @@
-# How I built Mika OS (and what I got wrong on the way)
+# How I built CHAMP OS (and what I got wrong on the way)
 
 This is the long version. The README is the 30-second one.
 
 ## Step 1: a fleet of small agents
 
-I wanted a command centre for my own work: briefings, notes, research, security checks, a builder, and a chat window that routes to the right one. So I wrote a fleet of small Node services and ran them under PM2 on ports 3001 to 3015, with an Electron app on top that deploys them on launch (`npx pm2 start ecosystem.config.cjs`).
+I wanted a command centre for my own work: briefings, notes, research, security checks, a builder, and a chat window that routes to the right one. So I wrote a fleet of small Node services and ran them under PM2, with an Electron app on top that deploys them on launch (`npx pm2 start ecosystem.config.cjs`).
 
 Choices I would still make:
 - **Context-isolated Electron.** `contextIsolation: true`, `nodeIntegration: false`, and a small, explicit IPC surface in `preload.js`. A frameless window with a tray icon, so it lives in the background.
@@ -20,10 +20,10 @@ On **2026-10-24** I agreed a new direction with my lead agent, and we wrote it d
 | Before | After |
 |---|---|
 | orchestrator (always on) | stays, plus a queue poller |
-| life-admin, fitness, learning, business, manufacturing, career | domain profile notes (planned: the orchestrator will read them) |
+| six personal agents | profile notes (planned: the orchestrator will read them) |
 | memory, vault-manager | shared library code |
 | researcher, builder | role sub-agents (`researcher`, `web-builder`, `motion-3d-builder`, `app-builder`, `engine-developer`) |
-| network-security, it-security, maintenance | run-and-exit scripts |
+| security and maintenance checks | run-and-exit scripts |
 | offline-llm | on-demand bridge |
 
 The migration is four small, reversible phases: (1) profiles and queue helpers, (2) the orchestrator reads profiles itself behind a `USE_LOCAL_PROFILES` feature flag, (3) scheduled jobs as scripts, (4) retire the redundant daemons. Phase 1 is done: the profile notes exist and the helpers are written. Phase 2 is queued. I am not claiming phases 3 and 4.
@@ -75,7 +75,7 @@ Nothing calls the helpers yet. That is the next job, and I would rather say so t
 The standard pipeline is `explorer -> builder -> reviewer -> privacy-guard -> scribe`. The reason is a comparison I wrote on 2026-10-24: one lead (Gemini) finished two writing tasks in about eight minutes, but only checked its own work. A second lead (Claude) was slower but ran sub-agents in parallel and had a separate reviewer check each one.
 
 The review notes on 2026-10-27 proved the point. In one batch, a reviewer found that:
-- a Mika OS write-up named the wrong Electron major version;
+- a write-up about this project named the wrong Electron major version;
 - one case study's claims had no source file;
 - the ADR said 14 agents and listed 15;
 - a "done" test was marked as met when the result did not meet it.
@@ -88,7 +88,7 @@ I use more than one AI lead (Claude, Gemini). Rule: **the lock file decides who 
 
 ## Step 8: naming
 
-I forced plain English into task titles (no "Phase 2" without saying what it does) and chose a public name, **Mika OS**. The old name, CHAMP OS, survives in a few folder names so nothing breaks.
+I forced plain English into task titles (no "Phase 2" without saying what it does) and chose a public name. It was **Mika OS** while I built it; it is now **CHAMP OS**. The old name survives in some folder, file and app names so nothing breaks.
 
 ## Lessons
 

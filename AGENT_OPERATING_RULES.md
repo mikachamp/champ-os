@@ -1,6 +1,6 @@
 # Agent Operating Rules — one queue, many agents
 
-Created 2026-10-23 (agreed by Mika and Claude). Every agent (Mika OS agents, Antigravity, Claude Code, any other) follows this file.
+Created 2026-10-23 (agreed by Mika and Claude). Every agent (CHAMP OS agents, Antigravity, Claude Code, any other) follows this file.
 If anything here conflicts with an older brief, this file wins. Ask Mika if unsure.
 
 ## 1. One control centre: the Obsidian vault
@@ -74,7 +74,7 @@ Check your Antigravity version first: per InfoWorld's review (19 Oct 2026), Anti
 ## 7. Sub-agent roles (added 2026-10-24)
 - Every task file has a `role:` (web-builder, motion-3d-builder, app-builder, engine-developer, case-study-writer, design-librarian, researcher, reviewer, or mika). The lead launches a sub-agent of that role, with the role's reading list, limits and test standard from `agents/shared/subagent-roles.json` (human version: `obsidian/Agents/Sub-Agent Roles.md`).
 - **Same role, several targets:** when work covers several apps or websites (or several variants), split it into one task per target with the same role and launch one sub-agent per task in parallel. The cap stays at 3 in `working`. Overlapping `touches` run in sequence.
-- **Run mode for now:** Antigravity with Claude and Gemini. The local/offline PM2 agents stay off until Mika says otherwise. The Mika OS orchestrator adopts the same registry in Phase D.
+- **Run mode for now:** Antigravity with Claude and Gemini. The local/offline PM2 agents stay off until Mika says otherwise. The CHAMP OS orchestrator adopts the same registry in Phase D.
 - **New roles:** the lead or orchestrator may add more instances of active roles freely (within the cap). It may draft a *new* role as `status: proposed` in `subagent-roles.json`, which may only do read-only or notes-only work until Mika approves it once. No role can change the common limits or raise the cap.
 
 ## 8. Claude sub-agent files and the standard pipeline (added 2026-10-27)
@@ -85,4 +85,4 @@ Check your Antigravity version first: per InfoWorld's review (19 Oct 2026), Anti
 
 ## 9. Naming (added 2026-10-27)
 - **Task titles must be plain English, saying what changes and why.** Never use "Phase N" or "migration" without saying what it does. Example: "Let the orchestrator answer domain questions itself (behind an off switch)", not "Migration Phase 2".
-- **The AI project's public name is Mika OS.** Use it in all new notes, task titles and portfolio text. Keep existing folder and file names (Ai_Agent, app/, mika-os/) as they are.
+- **The AI project's public name is CHAMP OS** (it was called Mika OS while it was being built). Use it in all new notes, task titles and portfolio text. Keep existing folder and file names (Ai_Agent, app/, mika-os/) as they are.

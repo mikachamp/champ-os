@@ -1,6 +1,6 @@
-# Mika OS — Design System
+# CHAMP OS — Design System
 
-The single reference for how Mika OS looks and behaves: tokens, components, 3D pieces, and
+The single reference for how CHAMP OS looks and behaves: tokens, components, 3D pieces, and
 the tools/techniques used to build them. Modelled on a mobile app's design-system doc.
 
 > **Keep this file current.** Any change to colours, typography, components, layouts, or the
