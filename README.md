@@ -1,6 +1,6 @@
 # CHAMP OS
 
-**A multi-agent system that runs on local models. One orchestrator hands work to short-lived role agents, and a markdown vault is the single source of truth.**
+**A multi-agent system: a lead agent orchestrates 33 specialist role agents (Claude Code, Gemini via Antigravity) through a markdown task queue with locks, human approval gates and review/security gates. A separate always-on fleet of 13 agents runs the day-to-day, and can run on local models. A markdown vault is the single source of truth.**
 
 I built it to stop babysitting a pile of always-on bots. It started as 15 background services. It is turning into one small orchestrator plus specialists that wake up, do one task, write down what they did, and leave. While I built it, it was called Mika OS, and that name still shows in the app's window and tray text, the screenshots, some file names and the `MIKAOS_*` test switches.
 
@@ -17,10 +17,11 @@ These screenshots come from this repo's app running against a small fictional de
 ## The 30-second version
 
 - **One orchestrator** routes requests and (soon) dispatches queued tasks.
-- **Role sub-agents** (web-builder, reviewer, privacy-guard, scribe and more) are launched per task, each with a fixed reading list, limits and test standard.
+- **33 role sub-agents** (web-builder, reviewer, privacy-guard, scribe and more, listed in `agents/shared/subagent-roles.json`) are launched per task, each with a fixed reading list, limits and test standard.
 - **Personal agents are being turned into markdown profile notes.** Phase 1 is done: the six notes exist. The orchestrator doesn't read them yet. Phase 2, behind a `USE_LOCAL_PROFILES` flag, is planned.
 - **An Obsidian vault is the control centre.** Tasks, results and locks are all files. Humans and agents read and write the same thing.
 - **An Electron desktop app** sits on top: frameless window, tray icon, chat, agent status.
+- **An always-on PM2 fleet** (1 orchestrator, 13 agents and 1 local-model service, 15 processes) runs the day-to-day. The Researcher and the app chat page call Anthropic; the other agents can use a local model and fall back to Gemini.
 - **Humans approve.** Agents stop at `review`. They never publish, push, send, delete or spend.
 
 ## Architecture
