@@ -1,0 +1,110 @@
+<svg viewBox="0 0 960 560" role="img" aria-labelledby="flow-t flow-d" xmlns="http://www.w3.org/2000/svg" class="dg ch" width="960" height="560">
+<style>
+:root{--bg:#F3F2EE;--fg:#1D1F22;--muted:#5E636A;--line:#D9D7D0;--card:#FFFFFF;--accent:#2E6F68;--flag:#B4543C;
+--f-head:"Schibsted Grotesk","Segoe UI",system-ui,sans-serif;--f-body:"Source Serif 4",Georgia,serif;--f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141617;--fg:#E4E4DF;--muted:#9AA0A6;--line:#2C2F32;--card:#1C1F21;--accent:#7FC3B9;--flag:#E58A6E;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#141617;--fg:#E4E4DF;--muted:#9AA0A6;--line:#2C2F32;--card:#1C1F21;--accent:#7FC3B9;--flag:#E58A6E;color-scheme:dark}
+.bgfill{fill:var(--card)}
+.dg .grp{fill:none;stroke:var(--line);stroke-width:1.5}
+.dg .grp-c{fill:var(--flag);fill-opacity:.06;stroke:var(--flag);stroke-width:1.5;stroke-dasharray:6 5}
+.dg .grp-l{fill:var(--accent);fill-opacity:.06;stroke:var(--accent);stroke-width:1.5}
+.dg .bx{fill:var(--bg);stroke:var(--line);stroke-width:1.2}
+.dg .bx-a{fill:var(--accent);fill-opacity:.14;stroke:var(--accent);stroke-width:1.5}
+.dg .bx-c{fill:var(--bg);stroke:var(--flag);stroke-width:1.2;stroke-dasharray:5 4}
+.dg .bx-g{fill:var(--flag);fill-opacity:.12;stroke:var(--flag);stroke-width:1.8}
+.dg .lane{fill:var(--bg);fill-opacity:.5;stroke:var(--line);stroke-width:1}
+.dg .lane2{fill:none;stroke:var(--line);stroke-width:1}
+.dg text{font-family:var(--f-head);fill:var(--fg)}
+.dg .tt{font-size:15px;font-weight:700}
+.dg .t{font-size:13.5px;font-weight:600}
+.dg .ts{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
+.dg .tn{font-size:11.5px;font-weight:600}
+.dg .tp{font-family:var(--f-mono);font-size:10.5px;fill:var(--muted)}
+.dg .tc{fill:var(--flag)}
+.dg .ta{fill:var(--accent)}
+.dg .mid{text-anchor:middle}
+.dg .end{text-anchor:end}
+.dg .ln{fill:none;stroke:var(--muted);stroke-width:1.5}
+.dg .ln-a{fill:none;stroke:var(--accent);stroke-width:1.6}
+.dg .ln-p{fill:none;stroke:var(--muted);stroke-width:1.4;stroke-dasharray:3 3}
+.dg .ln-c{fill:none;stroke:var(--flag);stroke-width:1.6;stroke-dasharray:6 4}
+.dg .mk{fill:var(--muted)}
+.dg .mk-a{fill:var(--accent)}
+.dg .mk-c{fill:var(--flag)}
+</style>
+<rect class="bgfill" x="0" y="0" width="960" height="560"/>
+
+<title id="flow-t">CHAMP OS data flow</title>
+<desc id="flow-d">Inputs are: the user through the dashboard, Agent Chat, tray menu and offline chat; eight scheduled jobs; the Director loops; vault notes read as context; and system checks such as npm audit and the firewall state. An agent builds a prompt and calls the shared model caller. If LM Studio is reachable the prompt goes to the local model and nothing leaves the PC. If not, it falls back to the Google Gemini API, unless the provider is set to local only. The Researcher agent and the app chat page always use the Anthropic API. Offline chat only uses local models. Results are written to the vault as markdown under Logs, Notes and Tasks, and shown on the dashboard, in Agent Chat and as Windows notifications.</desc>
+<defs>
+<marker id="bm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk"/></marker>
+<marker id="ba" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-a"/></marker>
+<marker id="bc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-c"/></marker>
+</defs>
+<rect class="grp" x="20" y="44" width="220" height="470" rx="12"/>
+<text class="tt" x="36" y="70">Where data comes from</text>
+<rect class="bx" x="36" y="84" width="188" height="76" rx="8"/>
+<text class="t" x="48" y="106">You</text><text class="ts" x="48" y="125">dashboard · Agent Chat</text><text class="ts" x="48" y="141">tray menu · offline chat</text>
+<rect class="bx" x="36" y="170" width="188" height="76" rx="8"/>
+<text class="t" x="48" y="192">8 scheduled jobs</text><text class="ts" x="48" y="211">04:00 04:15 audits</text><text class="ts" x="48" y="225">06:00 07:00 18:00 20:00</text><text class="ts" x="48" y="239">Mon plan · Sun updates</text>
+<rect class="bx" x="36" y="256" width="188" height="76" rx="8"/>
+<text class="t" x="48" y="278">Director loops</text><text class="ts" x="48" y="297">states every 30 s</text><text class="ts" x="48" y="311">chat remarks every 45 s</text><text class="ts" x="48" y="325">report every 2 h, 7–23h</text>
+<rect class="bx" x="36" y="342" width="188" height="76" rx="8"/>
+<text class="t" x="48" y="364">Vault notes as context</text><text class="ts" x="48" y="383">personal context · tasks</text><text class="ts" x="48" y="399">daily log · agent state</text>
+<rect class="bx" x="36" y="428" width="188" height="76" rx="8"/>
+<text class="t" x="48" y="450">This PC</text><text class="ts" x="48" y="469">npm audit / outdated</text><text class="ts" x="48" y="485">firewall state</text>
+<path class="ln" d="M224,122 H252 M224,208 H252 M224,294 H252 M224,380 H252 M224,466 H252 M252,122 V466"/>
+<path class="ln" d="M252,128 H292" marker-end="url(#bm)"/>
+
+<rect class="grp" x="280" y="44" width="380" height="470" rx="12"/>
+<text class="tt" x="296" y="70">What the agent does</text>
+<rect class="bx" x="296" y="96" width="348" height="64" rx="8"/>
+<text class="t" x="312" y="120">Agent builds a prompt</text>
+<text class="ts" x="312" y="140">task + vault context → shared/llm.js</text>
+<path class="ln" d="M470,160 V178" marker-end="url(#bm)"/>
+<polygon class="bx-a" points="330,214 470,178 610,214 470,250"/>
+<text class="t mid" x="470" y="211">LM Studio reachable?</text>
+<text class="ts mid" x="470" y="229">rechecked every 30 s</text>
+<path class="ln-a" d="M330,214 H316 V286" marker-end="url(#ba)"/>
+<text class="ts ta" x="324" y="270">yes</text>
+<path class="ln-c" d="M610,214 H624 V286" marker-end="url(#bc)"/>
+<text class="ts tc end" x="616" y="270">no</text>
+<rect class="bx-a" x="296" y="290" width="164" height="70" rx="8"/>
+<text class="t" x="308" y="314">Local model</text><text class="ts" x="308" y="332">LM Studio</text><text class="ts" x="308" y="348">stays on the PC</text>
+<rect class="bx-c" x="480" y="290" width="164" height="70" rx="8"/>
+<text class="t" x="492" y="314">Gemini API (cloud)</text><text class="ts" x="492" y="332">fallback only;</text><text class="ts" x="492" y="348">off if provider=local</text>
+<rect class="bx-c" x="296" y="380" width="348" height="56" rx="8"/>
+<text class="t" x="312" y="402">Researcher + app chat page → Anthropic</text>
+<text class="ts" x="312" y="420">Claude · web search for research · cloud</text>
+<rect class="bx-a" x="296" y="448" width="348" height="52" rx="8"/>
+<text class="t" x="312" y="470">Offline chat → offline-llm → local model</text>
+<text class="ts" x="312" y="488">LM Studio or llama-server only</text>
+<path class="ln-a" d="M660,250 H702" marker-end="url(#ba)"/>
+<text class="ts" x="664" y="242">write</text>
+
+<rect class="grp" x="690" y="44" width="250" height="470" rx="12"/>
+<text class="tt" x="706" y="70">Where it ends up</text>
+<rect class="grp-l" x="706" y="84" width="218" height="300" rx="8"/>
+<text class="t" x="720" y="108">Vault (local markdown)</text>
+<text class="ts" x="720" y="132">Logs/briefings/</text>
+<text class="ts" x="720" y="150">Logs/fitness/ · research/</text>
+<text class="ts" x="720" y="168">Logs/builds/ + output</text>
+<text class="ts" x="720" y="186">Logs/security/</text>
+<text class="ts" x="720" y="204">Logs/maintenance/</text>
+<text class="ts" x="720" y="222">Logs/director/ check-ins</text>
+<text class="ts" x="720" y="240">Logs/Agents/ state files</text>
+<text class="ts" x="720" y="258">Logs/conversations/</text>
+<text class="ts" x="720" y="276">Notes/Memory Index.md</text>
+<text class="ts" x="720" y="294">Tasks/weekly-plan-*.md</text>
+<text class="ts" x="720" y="312">Logs/*.log (PM2 output)</text>
+<path class="ln" d="M815,384 V400" marker-end="url(#bm)"/>
+<rect class="bx" x="706" y="404" width="218" height="96" rx="8"/>
+<text class="t" x="720" y="428">Shown to you</text>
+<text class="ts" x="720" y="448">dashboard + Agent Chat</text>
+<text class="ts" x="720" y="464">Windows notifications</text>
+<text class="ts" x="720" y="480">(briefing, fitness, study)</text>
+
+<path class="ln-a" d="M36,542 H76"/><text class="ts" x="84" y="546">stays on this PC</text>
+<path class="ln-c" d="M250,542 H290"/><text class="ts" x="298" y="546">leaves the machine over the internet</text>
+<path class="ln" d="M580,542 H620"/><text class="ts" x="628" y="546">internal step</text>
+</svg>

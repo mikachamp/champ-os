@@ -1,129 +1,86 @@
 # CHAMP OS
 
-**A multi-agent system: a lead agent orchestrates 33 specialist role agents (Claude Code, Gemini via Antigravity) through a markdown task queue with locks, human approval gates and review/security gates. A separate always-on fleet of 13 agents runs the day-to-day, and can run on local models. A markdown vault is the single source of truth.**
+A multi-agent system: a lead agent orchestrates 33 specialist role agents (Claude Code, Gemini via Antigravity) through a markdown task queue with locks, human approval gates and review/security gates; a separate always-on fleet of 13 agents runs the day-to-day.
 
-I built it to stop babysitting a pile of always-on bots. It started as 15 background services. It is turning into one small orchestrator plus specialists that wake up, do one task, write down what they did, and leave. While I built it, it was called Mika OS, and that name still shows in the app's window and tray text, the screenshots, some file names and the `MIKAOS_*` test switches.
+![The CHAMP OS desktop app's command centre, shown with demo content](docs/dashboard-demo.jpg)
 
-> Status, honestly: the desktop app and the original agent fleet work. The task-queue helpers (claim, heartbeat, finish, stale takeover) are written and tested but not wired into the orchestrator yet. The migration is in steps, and the unfinished ones are marked below.
+*The desktop app's command centre, with demo content. The app was first called Mika OS, which is why the screenshot still shows that name. More: [agent fleet page](docs/agent-fleet-demo.jpg) (demo data).*
 
-## What it looks like
+## The problem, and the key design decision
 
-| Command Center | Agent fleet | Knowledge graph |
-|---|---|---|
-| ![CHAMP OS command center](docs/screenshots/mika-os-dashboard.jpg) | ![CHAMP OS agent fleet](docs/screenshots/mika-os-agents.jpg) | ![CHAMP OS knowledge graph](docs/screenshots/mika-os-knowledge-graph.jpg) |
+**Problem.** I wanted one place to hand work to AI agents and keep my notes, with every task tracked, reviewed and approved by me, instead of a pile of separate dashboards and chats.
 
-These screenshots come from this repo's app running against a small fictional demo vault, with a stub serving demo agent statuses. My real vault stays private. More of my work is in my portfolio: [mikachamp.github.io/portfolio](https://mikachamp.github.io/portfolio/).
-
-## The 30-second version
-
-- **One orchestrator** routes requests and (soon) dispatches queued tasks.
-- **33 role sub-agents** (web-builder, reviewer, privacy-guard, scribe and more, listed in `agents/shared/subagent-roles.json`) are launched per task, each with a fixed reading list, limits and test standard.
-- **Personal agents are being turned into markdown profile notes.** Phase 1 is done: the six notes exist. The orchestrator doesn't read them yet. Phase 2, behind a `USE_LOCAL_PROFILES` flag, is planned.
-- **An Obsidian vault is the control centre.** Tasks, results and locks are all files. Humans and agents read and write the same thing.
-- **An Electron desktop app** sits on top: frameless window, tray icon, chat, agent status.
-- **An always-on PM2 fleet** (1 orchestrator, 13 agents and 1 local-model service, 15 processes) runs the day-to-day. The Researcher and the app chat page call Anthropic; the other agents can use a local model and fall back to Gemini.
-- **Humans approve.** Agents stop at `review`. They never publish, push, send, delete or spend.
+**Key design decision: plain markdown files are the shared memory and the task queue.** Every task is a markdown file with a small header (status, assignee, what it may touch, how it will be tested). Agents claim a task with an atomic lock file and a 30-minute lease, so two agents can never work on the same task. People and agents read and write the same files, so there is no database to migrate and I can inspect everything in a normal notes app. Agents can only move a task to *review*; only I can mark it *done*.
 
 ## Architecture
 
 ```mermaid
-flowchart TD
-    A[Electron desktop app<br/>app/] -->|IPC / REST| O[Orchestrator<br/>always on]
-    O --> Q[Task queue<br/>Tasks/Queue/*.md]
-    O -.->|planned| P[Personal agent profiles<br/>Agents/Profiles/*.md]
-    Q -->|claim: lock file + lease| R1[web-builder]
-    Q --> R2[motion-3d-builder]
-    Q --> R3[case-study-writer]
-    R1 --> RV[reviewer]
-    R2 --> RV
-    R3 --> RV
-    RV --> PG[privacy-guard]
-    PG --> SC[scribe<br/>result note, status = review]
-    SC --> H((Mika approves))
-    O -.->|optional| L[Local LLM bridge<br/>LM Studio / llama-server]
+flowchart LR
+    Mika(["Me: assign, approve, mark done"])
+
+    subgraph Vault["Markdown vault on the local disk"]
+        Queue["Task queue<br/>one file per task"]
+        Locks["Lock files<br/>+ 30-min leases"]
+        Results["Result notes<br/>+ lessons per role"]
+    end
+
+    subgraph Lead["Lead agent (Claude Code / Gemini via Antigravity)"]
+        Orchestrate["Reads the queue,<br/>hands out tasks"]
+    end
+
+    subgraph Roles["33 specialist role agents"]
+        Builders["Builders<br/>web, app, 3D, case study"]
+        Review["Reviewer +<br/>design and UX check"]
+        Security["Security and privacy roles<br/>read-only"]
+        Scribe["Scribe<br/>records and lessons"]
+    end
+
+    subgraph Fleet["Always-on fleet (PM2)"]
+        Router["Orchestrator<br/>router + Director"]
+        Agents["13 agents<br/>briefings, research, audits"]
+    end
+
+    App["Electron desktop app<br/>control surface"]
+
+    Mika -->|"creates or approves tasks"| Queue
+    Orchestrate -->|"claim"| Locks
+    Orchestrate --> Builders --> Review --> Security --> Scribe
+    Scribe --> Results
+    Results -->|"status: review"| Mika
+    Mika -->|"done (human only)"| Queue
+    App --> Router --> Agents
+    Agents -->|"notes, briefings, reports"| Vault
+    Mika -->|"replies in Agent Chat"| Router
 ```
 
-The UI and the engine are two separate layers on purpose: the Electron UI (`app/`) and the agent engine (`agents/`). I can reload or redesign the UI without killing a long-running job.
+More diagrams exported from the portfolio page: [always-on fleet](docs/architecture.svg), [data flow](docs/data-flow.svg) and [Director approval workflow](docs/approval-workflow.svg).
 
-## From 15 daemons to one orchestrator (the ADR)
+## How it works
 
-The first version was a PM2 fleet of 15 Node services: an orchestrator, personal agents, memory and vault helpers, a researcher, a builder, three advice agents, security and maintenance checks, and an offline-LLM bridge.
+1. **A markdown task queue with locks.** Each task file names its assignee, the files it may touch, the test that proves it is done and what it depends on. An agent claims a task by creating its lock file with an exclusive create: if the file already exists, someone else has it. The claim writes a 30-minute lease into the task, the owner renews it with a heartbeat, and a stale lease can be taken back only by the orchestrator, only after a 10-minute grace period. Locks are moved to a *released* folder, never deleted, so the history stays. The helpers are in [`agents/shared/obsidian.js`](agents/shared/obsidian.js).
+2. **A lead agent and 33 role agents.** The lead reads the queue and hands each task through a fixed pipeline: an explorer finds what is relevant, a builder role does the work, then a reviewer, a design and UX check for anything people will see, the matching security or privacy role, and a scribe that records the result. A failed review goes back to the builder, not to me. Every role reads its own lessons file before starting and adds 1-3 lessons when it is done.
+3. **Human approval gates.** Agents stop at *review* for anything that cannot be undone: publishing, sending a message, pushing code, deleting files, spending money, submitting forms or changing security settings. My approval comes from my own terminal or a signed line in Agent Chat, never from another agent's message.
+4. **The always-on fleet.** Under PM2, an orchestrator classifies each request and routes it to one of 12 agents. Its Director loop checks agent states every 30 seconds, can pause or resume an agent, and posts check-ins. It may run a job only after I reply and agree, and only if the job is one of 8 fixed actions in the code. Scheduled agents write morning briefings, plans, research and nightly security reports into the vault. One optional service can run local models.
+5. **A desktop control surface.** An Electron app shows the fleet, the vault, Agent Chat and a Three.js graph of the notes. It never runs agent logic itself; it talks to the fleet and reads the vault.
 
-It worked, and it showed me what was wrong with it. The architecture decision record lists five problems:
+## Security model
 
-1. **RAM.** Idle Node processes cost an estimated 1.2 to 2.0 GB while I was doing CAD or slicing.
-2. **One GPU.** Local inference runs on a single laptop GPU. When many agents asked at once, requests timed out in the queue and the GPU kept swapping models.
-3. **Thin wrappers.** Five of the "agents" were the same Express server around one hard-coded system prompt.
-4. **A chatty director loop** that re-checked unchanged status files every 20 to 30 seconds.
-5. **Rigid dispatch.** I wanted three website tasks side by side, not one fixed "builder".
+- **Least privilege by role.** Security, privacy and audit roles are read-only. The builder agent only writes files into its own folder and never runs or installs what it writes.
+- **Humans hold the irreversible actions.** Anything that publishes, sends, pushes, deletes, spends or changes security settings stops for my approval. Agents can propose work but cannot mark it done.
+- **Approval is never inferred from chat.** Another agent's "approved" counts for nothing. The Director's model reading my reply is only a soft check; plain code then allows only a short fixed list of actions, none of which deletes files, installs packages or pushes code.
+- **One writer per file.** Tasks whose allowed files overlap never run at the same time, and atomic locks stop two agents claiming the same task.
+- **Local by default.** The agent services are reachable only from the same machine, and a nightly agent checks that. Data lives as plain files on the local disk, with no database and no sync service. Outside calls are limited to the model APIs, the package registry and web fonts, and a setting keeps all model calls on the local model.
+- **Secrets stay out of the code.** API keys are kept in git-ignored environment files, checked nightly, and the desktop app reads its key in the trusted main process, never in the page.
+- **A hardened desktop boundary.** The app's page is isolated from Node.js and reaches the system only through a small set of functions the preload bridge exposes.
 
-The new shape: keep the orchestrator, turn wrappers into profile notes, turn audits and briefings into run-and-exit jobs, and turn the builder into role sub-agents. Full write-up: [docs/BUILD-STORY.md](docs/BUILD-STORY.md).
+## Testing and results
 
-## The task queue (files, locks, leases)
+- **Task-queue helpers:** 18 tests in [`agents/shared/test/obsidian-tasks.test.js`](agents/shared/test/obsidian-tasks.test.js), run with Node's built-in test runner (`node --test`). They cover two simultaneous claims (exactly one wins), lease and heartbeat rules, owner-only finishing, lock history, stale takeover timing (including leases written by hand with a time-zone offset) and Windows paths with spaces. Every test uses a throw-away temporary vault. **Result: 18 of 18 pass** (17 Nov 2026).
+- **Offline chat logic:** 13 tests in `app/test/offline-lib.test.js`.
+- The fleet watches itself: nightly exposure and dependency audits write their reports into the vault.
+- The queue held 117 task files on 17 Nov 2026; finished work is written up in a result note per task, with what was run and what was seen.
 
-Every task is one markdown file with YAML frontmatter: `id`, `role`, `assignee`, `status`, `depends_on`, `touches`, `done_test`, `claimed_by`, `lease_until`.
-
-- **Claim = create a lock file** with exclusive create (`fs.open(path, 'wx')`). If the file already exists, someone else has the task. No database is needed, and two claims can't both succeed.
-- **Lease.** A claim sets `lease_until` 30 minutes ahead; a heartbeat extends it.
-- **Stale takeover.** Only the orchestrator may reclaim a task whose lease expired more than 10 minutes ago, and it logs one line when it does.
-- **`touches` is a fence.** Two tasks whose `touches` overlap never run together.
-- **Cap.** At most 3 tasks in `working` at once. More agents just create a review queue.
-- **Finish.** `finishTask` writes the result link, sets `review`, and moves the lock to `locks/released/` (it never deletes it).
-
-The helpers are `claimTask`, `heartbeat`, `finishTask`, `releaseLock` and `takeOverStaleTask` in `agents/shared/obsidian.js`. They have 18 tests in `agents/shared/test/obsidian-tasks.test.js`, all passing at the time of writing.
-
-## The pipeline and the human gates
-
-```
-explorer -> builder role -> reviewer -> privacy-guard -> scribe -> design-librarian
-```
-
-A failed review goes back to the builder, not to me. Anything others will see goes through privacy-guard. Only I can set a task to `done`. Agents never publish, push, commit, send, delete, spend or submit forms. Major actions wait for a human to approve them. Agents also have to cite files for facts, and they are told never to invent numbers, clients or dates. The full rules are in [AGENT_OPERATING_RULES.md](AGENT_OPERATING_RULES.md).
-
-## Offline chat (local model, streaming, Stop)
-
-The Offline Chat page of the desktop app talks to a local OpenAI-compatible server (LM Studio or `llama-server`) on this PC. Only local addresses are accepted.
-
-- **Streaming with Stop.** Replies stream token by token, with a Stop button that cancels the request. All networking runs in the Electron main process; the page only receives chunks over IPC.
-- **Remembered model.** The chosen model is saved in the app's user-data folder and survives a restart.
-- **Start button.** If no local model is running, a panel offers "Start llama-server" and "Retry connection". Start only launches a `llama-server` executable with a `.gguf` model and fixed arguments.
-- **Safe rendering.** Model text is written with `textContent`, never `innerHTML`, so markup in a reply is shown as plain text.
-- **Narrow windows.** At 600px wide or less, the sidebar collapses by itself.
-- **Tests.** The pure logic is in `app/offline-lib.js`, and `cd app && node --test test/offline-lib.test.js` runs its 13 tests. A real-Electron end-to-end script (`app/test/e2e/run-e2e.js`, with a mock streaming server and a stand-in `llama-server`) passed 33 checks with 0 console errors when it was built.
-- **Not verified:** I have not yet tried Start with a real `llama-server` build. It was tested against a stand-in executable.
-- **Test switches:** `MIKAOS_NO_AGENTS=1` skips the PM2 fleet, and `MIKAOS_VAULT` overrides the vault path. Both exist for the test runs.
-
-## How I test (and why it matters)
-
-I do not take "it works" on trust, from a model or from me.
-
-- Headless Chrome through `puppeteer-core`, at **1440x900** and **390x844**.
-- No console errors, and `scrollWidth - innerWidth == 0` (no sideways scroll).
-- Builds must open from `file://` and work offline.
-- Reduced motion is emulated and checked.
-- For WebGL timing: the **real GPU** (`--use-angle=d3d11`). Software rendering gives meaningless frame rates.
-- Backend code: `node --check`, an import check, and `node --test`. Tests run in a temp vault, so the real one is never touched.
-
-## What broke, and how I fixed it
-
-- **The claim helper ate fields.** A regex using `\s*` matched the newline, so claiming a task on a fresh file deleted the next frontmatter line. A review found 10 bugs in those helpers; they were rewritten and tested (see the build story).
-- **Case studies with wrong facts.** A reviewer caught a wrong Electron version, an overstated "immutable history", and, in another write-up, claims with no source file. Every claim now has to cite one.
-- **"14 agents".** The ADR said 14 in the heading but had 15 rows in the table. The reviewer counted.
-- **A leaking agent.** One agent's memory use ran away (host RAM at 99%). Restarting it dropped the host to 78%. That is one reason the always-on model is going.
-- **Hidden overflow.** A page looked fine at 390 px only because the overflow was hidden, not fixed. Review caught it. My rule is now "fixed or visibly handled".
-
-## What lives where
-
-| Folder | What it is |
-|---|---|
-| `app/` | The Electron desktop app (frameless window, tray, chat, graph views) |
-| `agents/` | Orchestrator, PM2 config, the agent services, shared libraries (`shared/obsidian.js`, `shared/llm.js`) |
-| `agents/shared/subagent-roles.json` | The role registry: what each role does, its reading list, test standard and limits |
-| `.claude/agents/` | One agent file per role, generated from the registry |
-| `AGENT_OPERATING_RULES.md` | The rules every agent follows |
-| `docs/` | The build story |
-
-## Run it
+## Setup
 
 ```bash
 git clone https://github.com/mikachamp/champ-os.git
@@ -134,12 +91,22 @@ cd agents && npm install && node --test shared/test/obsidian-tasks.test.js
 
 # start the desktop app
 cd ../app && npm install && npm start
+
+# offline chat logic tests (13 tests)
+node --test test/offline-lib.test.js
 ```
 
-Copy `agents/.env.example` to `agents/.env` and set your own vault path and keys. Local models are optional (LM Studio or a bundled `llama-server`). To start the agent fleet, run `npx pm2 start ecosystem.config.cjs` inside `agents/`.
+Copy `agents/.env.example` to `agents/.env` and set your own vault path and keys. Local models are optional. To start the agent fleet, run `npx pm2 start ecosystem.config.cjs` inside `agents/`. For test runs, `MIKAOS_NO_AGENTS=1` skips the fleet and `MIKAOS_VAULT` overrides the vault path.
 
-## Honest boundaries
+| Folder | What it is |
+|---|---|
+| `app/` | The Electron desktop app (frameless window, tray, chat, graph views) |
+| `agents/` | Orchestrator, PM2 config, the agent services, shared libraries (`shared/obsidian.js`, `shared/llm.js`) |
+| `agents/shared/subagent-roles.json` | The role registry: what each role does, its reading list, test standard and limits |
+| `.claude/agents/` | One agent file per role, generated from the registry |
+| `AGENT_OPERATING_RULES.md` | The rules every agent follows |
+| `docs/` | Diagrams, demo screenshots and the [build story](docs/BUILD-STORY.md) |
 
-This is a personal, single-user desktop tool. It uses no custom-trained models; it orchestrates open-weight and cloud models. When the local model is down, the shared LLM helper can fall back to a cloud model, so "fully offline" only holds if you stay on the local path.
+## Status
 
-Companion repos: [mika-os-knowledge-base](https://github.com/mikachamp/mika-os-knowledge-base) (the vault template) and [web-lab](https://github.com/mikachamp/web-lab).
+Working locally on my Windows PC. Next steps: apply the security hardening that is in review, then replace the always-on processes with one orchestrator and short-lived role agents that claim a task, write their result and stop.
